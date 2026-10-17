@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-expenses}
+      POSTGRES_USER: ${DB_USER:-expenses}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-expenses}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-expenses} -d ${DB_NAME:-expenses}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-expenses}
+      DB_USER: ${DB_USER:-expenses}
+      DB_PASSWORD: ${DB_PASSWORD:-expenses}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
+      RATE_LIMIT_GENERAL: ${RATE_LIMIT_GENERAL:-60}
+      RATE_LIMIT_AUTH: ${RATE_LIMIT_AUTH:-10}
+      HARDENING_ENABLED: ${HARDENING_ENABLED:-true}
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
