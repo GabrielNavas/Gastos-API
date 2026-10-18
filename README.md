@@ -1,7 +1,5 @@
 # Gastos API
 
-![CI](https://github.com/SEU_USUARIO/gastos-api/actions/workflows/ci.yml/badge.svg)
-
 API REST de controle de despesas em Java 21 e Spring Boot 3. Fiz como desafio de uma mentoria: pegar um projeto simples de gerenciador de despesas e tratar segurança como parte do código, não como etapa final. No fim, o pipeline roda o OWASP ZAP contra a própria API.
 
 Cada usuário cria suas categorias e despesas, filtra por período e só enxerga o que é dele.
@@ -89,7 +87,7 @@ O `categoryId` é opcional, mas precisa ser de uma categoria do próprio usuári
 mvn verify
 ```
 
-São 21 testes: fluxo de autenticação, reuso de refresh token, logout, acesso a dados de outro usuário, validação, rate limit e headers. Os de integração usam Testcontainers com um Postgres real, então o Docker precisa estar rodando.
+São 23 testes: fluxo de autenticação, reuso de refresh token, logout, acesso a dados de outro usuário, validação, rate limit, headers e payloads de SQL injection. Os de integração usam Testcontainers com um Postgres real, então o Docker precisa estar rodando.
 
 ## Pipeline e ZAP
 
@@ -97,11 +95,31 @@ O workflow em `.github/workflows/ci.yml` tem dois jobs. O primeiro compila e rod
 
 ### Resultado do scan
 
-**Antes:** TODO (print do relatório e número de alertas)
+Rodei o ZAP API Scan autenticado duas vezes contra a mesma API. A única diferença é a variável `HARDENING_ENABLED`: o "antes" é a API com os headers extras desligados, o "depois" é com eles ligados.
 
-**Depois:** TODO (print do relatório e número de alertas)
+| Nível | Antes | Depois |
+|---|---|---|
+| High | 1 | 1 |
+| Medium | 0 | 0 |
+| Low | 1 | 0 |
+| Informational | 3 | 3 |
 
-TODO: tabela com os alertas reais, o que cada um significa e o que mudei.
+![Relatório do ZAP antes](docs/zap/antes.png)
+![Relatório do ZAP depois](docs/zap/depois.png)
+
+| Alerta | Risco | Antes | Depois | O que fiz |
+|---|---|---|---|---|
+| SQL Injection (`PUT /api/categories/{id}`, parâmetro `name`) | High | 1 | 1 | Investiguei: falso positivo (detalhes abaixo) |
+| Cross-Origin-Resource-Policy Header Missing or Invalid | Low | 5 ocorrências | 0 | Passei a enviar `Cross-Origin-Resource-Policy: same-origin` |
+| A Client Error response code was returned | Info | 59 | 59 | Esperado: o ZAP manda entradas inválidas e a API as rejeita com 4xx |
+| Authentication Request Identified | Info | 1 | 1 | Informativo: o ZAP reconheceu o endpoint de login |
+| Non-Storable Content | Info | sistêmico | sistêmico | Esperado: as respostas saem com `Cache-Control: no-store` |
+
+**Sobre o SQL Injection.** Por ser o alerta mais grave, fui investigar em vez de ignorar. O ZAP usou o payload `ZAP AND 1=1 --` no campo `name` da edição de categoria. Todas as consultas ao banco passam por Spring Data com parâmetros e não há SQL montado por concatenação em lugar nenhum do código (a única `@Query` usa parâmetro nomeado). Escrevi o teste `SqlInjectionTest`, que envia esse payload e outros clássicos (`' OR '1'='1`, `'; DROP TABLE ...`) e confere que são gravados como texto comum, sem afetar a tabela nem os dados de outros usuários. Por isso classifico como falso positivo.
+
+Minha hipótese para o motivo do alerta: o detector compara as respostas de `AND 1=1` e `AND 1=2`, e o ZAP também testa o `DELETE` da mesma categoria durante o scan. Se a categoria some no meio, a resposta muda de 200 para 404 sem relação com SQL. Isso é hipótese minha; o que comprovei foi a revisão das consultas e o teste.
+
+Resumo honesto do "depois": o scan não zerou. Corrigi o que era real (o header que faltava) e documentei o que não era.
 
 ## Limitações
 
