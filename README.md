@@ -1,5 +1,7 @@
 # Gastos API
 
+![CI](https://github.com/GabrielNavas/Gastos-api/actions/workflows/ci.yml/badge.svg)
+
 API REST de controle de despesas em Java 21 e Spring Boot 3. Fiz como desafio de uma mentoria: pegar um projeto simples de gerenciador de despesas e tratar segurança como parte do código, não como etapa final. No fim, o pipeline roda o OWASP ZAP contra a própria API.
 
 Cada usuário cria suas categorias e despesas, filtra por período e só enxerga o que é dele.
