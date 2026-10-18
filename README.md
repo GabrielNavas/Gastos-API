@@ -104,8 +104,8 @@ Rodei o ZAP API Scan autenticado duas vezes contra a mesma API. A única diferen
 | Low | 1 | 0 |
 | Informational | 3 | 3 |
 
-![Relatório do ZAP antes](docs/zap/antes.png)
-![Relatório do ZAP depois](docs/zap/depois.png)
+![Relatório do ZAP antes](docs/antes.png)
+![Relatório do ZAP depois](docs/depois.png)
 
 | Alerta | Risco | Antes | Depois | O que fiz |
 |---|---|---|---|---|
